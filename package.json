@@ -1,0 +1,36 @@
+{
+  "name": "palugada-agent-kit",
+  "version": "0.1.0",
+  "description": "Agent-first, multi-channel AI agent starter kit. One universal agent core (Anthropic SDK, tool-use loop, memory) + channel adapters (CLI / HTTP / Telegram) + a recipe library that covers anything.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./tools": "./dist/src/tools/index.js",
+    "./channels": "./dist/src/channels/index.js",
+    "./recipes": "./dist/src/recipes/index.js"
+  },
+  "bin": {
+    "agent": "dist/examples/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx examples/cli.ts",
+    "serve": "tsx examples/server.ts",
+    "telegram": "tsx examples/telegram.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
