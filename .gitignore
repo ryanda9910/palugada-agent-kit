@@ -4,3 +4,5 @@ dist/
 .env
 *.log
 .DS_Store
+dist-zip/
+palugada-agent-kit.zip
