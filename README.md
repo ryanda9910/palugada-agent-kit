@@ -101,16 +101,27 @@ into `agent.run(text, { sessionId })`. A **recipe** is a preset `Agent`
 
 ## Memory backends
 
-Default `FileMemory` writes JSON under `AGENT_MEMORY_DIR`. For production, swap in
-your own:
+Three backends ship; all implement the same `Memory` interface:
+
+- `FileMemory` (default) — JSON under `AGENT_MEMORY_DIR`. Zero deps.
+- `EphemeralMemory` — in-process, lost on restart. Tests/demos.
+- `PgMemory` — Postgres + optional **pgvector semantic recall**.
 
 ```ts
-class PgMemory implements Memory { /* history/save/remember/recall */ }
-new Agent({ system, tools, memory: new PgMemory() });
+import { PgMemory } from "palugada-agent-kit/memory/pg";
+import { voyageEmbed } from "palugada-agent-kit/memory/embed"; // or openaiEmbed
+
+const memory = new PgMemory({
+  connectionString: process.env.DATABASE_URL,
+  dim: 1024,
+  embed: voyageEmbed(),   // omit -> keyword (ILIKE) recall on plain Postgres
+});
+await memory.init();       // creates tables + (if embed) the vector extension
+new Agent({ system, tools, memory });
 ```
 
-`recall()` is keyword-based in the file store; in a vector store, make it
-semantic — the interface is identical.
+`pg` is an optional peer dep (`npm i pg`). With `embed`, `recall()` is semantic
+(`embedding <=> query`); without it, keyword — same interface either way.
 
 ## Deploy
 
