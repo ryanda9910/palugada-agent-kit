@@ -1,6 +1,17 @@
-# Palu Gada Agent Kit
+<p align="center">
+  <img src="assets/logo.svg" alt="Palu Gada Agent Kit" width="96" height="96" />
+</p>
 
-**One agent core that runs anywhere, talks on any channel, and does anything.**
+<h1 align="center">Palu Gada Agent Kit</h1>
+
+<p align="center"><b>One agent core that runs anywhere, talks on any channel, and does anything.</b></p>
+
+<p align="center">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-FFD60A" />
+  <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict-3178C6" />
+  <img alt="model" src="https://img.shields.io/badge/model-Anthropic%20%7C%20OpenRouter-FFD60A" />
+  <img alt="deps" src="https://img.shields.io/badge/deps-~zero-44CC66" />
+</p>
 
 ![Palu Gada Agent Kit demo](demo.gif)
 
@@ -192,10 +203,13 @@ works over `FileMemory`, `PgMemory`, or `EphemeralMemory` unchanged.
 
 ## Safety notes
 
-- The HTTP tool blocks private/loopback/link-local/cloud-metadata targets (SSRF).
+- The HTTP tool blocks private/loopback/link-local/cloud-metadata targets (SSRF)
+  and does not auto-follow redirects.
 - `dangerous` tools require `onApprove` to return true — default allows; override
   in production.
 - Memory stores plaintext — don't `remember` secrets; encrypt the store if needed.
+
+See [SECURITY.md](SECURITY.md) for the full threat model and your responsibilities.
 
 ## License
 

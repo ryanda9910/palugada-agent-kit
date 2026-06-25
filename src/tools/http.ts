@@ -6,7 +6,10 @@ import { defineTool } from "../core/tool.js";
 function isPrivateAddr(ip: string): boolean {
   if (ip.includes(":")) {
     const v = ip.toLowerCase();
-    return v === "::1" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80") || v === "::";
+    // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1) — validate the embedded v4
+    const mapped = v.match(/(?:^::ffff:)(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return isPrivateAddr(mapped[1]!);
+    return v === "::1" || v === "::" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80");
   }
   const p = ip.split(".").map(Number);
   if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
@@ -72,8 +75,19 @@ export const httpFetch = defineTool<{
         headers: { "user-agent": "palugada-agent-kit/0.1", ...headers },
         body: body && method !== "GET" ? body : undefined,
         signal: ac.signal,
-        redirect: "follow",
+        // Do NOT auto-follow: a redirect to an internal host would bypass the
+        // SSRF check above. Surface the redirect target so the agent can decide
+        // (and re-fetch it, which re-validates the new host).
+        redirect: "manual",
       });
+      if (res.status >= 300 && res.status < 400) {
+        return {
+          status: res.status,
+          ok: false,
+          redirectedTo: res.headers.get("location"),
+          note: "Redirect not followed (SSRF safety). Re-call http_fetch with the redirect URL to follow it (it will be re-validated).",
+        };
+      }
       const text = await res.text();
       const MAX = 20_000;
       return {

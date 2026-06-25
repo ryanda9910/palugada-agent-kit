@@ -1,0 +1,22 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Palu Gada Agent Kit">
+  <rect width="128" height="128" rx="28" fill="#0E0E10"/>
+  <rect x="0.5" y="0.5" width="127" height="127" rx="27.5" stroke="#FFD60A" stroke-opacity="0.18"/>
+  <!-- links from the core to each surface (channels/tools) -->
+  <g stroke="#FFD60A" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round">
+    <line x1="64" y1="64" x2="32" y2="34"/>
+    <line x1="64" y1="64" x2="96" y2="34"/>
+    <line x1="64" y1="64" x2="32" y2="94"/>
+    <line x1="64" y1="64" x2="96" y2="94"/>
+  </g>
+  <!-- outer nodes -->
+  <g fill="#FFD60A">
+    <circle cx="32" cy="34" r="9"/>
+    <circle cx="96" cy="34" r="9"/>
+    <circle cx="32" cy="94" r="9"/>
+    <circle cx="96" cy="94" r="9"/>
+  </g>
+  <!-- agent core -->
+  <circle cx="64" cy="64" r="18" fill="#FFD60A"/>
+  <circle cx="64" cy="64" r="18" fill="#0E0E10" fill-opacity="0"/>
+  <circle cx="64" cy="64" r="7.5" fill="#0E0E10"/>
+</svg>
