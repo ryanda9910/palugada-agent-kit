@@ -11,7 +11,8 @@
     "./tools": "./dist/src/tools/index.js",
     "./channels": "./dist/src/channels/index.js",
     "./recipes": "./dist/src/recipes/index.js",
-    "./memory/pg": "./dist/src/memory/pg.js"
+    "./memory/pg": "./dist/src/memory/pg.js",
+    "./memory/reflective": "./dist/src/memory/reflective.js"
   },
   "bin": {
     "agent": "dist/examples/cli.js"

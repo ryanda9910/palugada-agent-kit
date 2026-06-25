@@ -140,6 +140,19 @@ export class PgMemory implements Memory {
     const { rows } = await this.pool.query(`SELECT fact FROM ${this.p}_facts ORDER BY at DESC LIMIT $1`, [limit]);
     return rows.map((r) => r.fact);
   }
+
+  /**
+   * Replace the whole fact set (used by ReflectiveMemory for consolidation/decay).
+   * Rows are stored as text only; when wrapped by ReflectiveMemory, ranking is done
+   * by that layer so embeddings are not needed here.
+   */
+  async _rewriteFacts(rows: string[]): Promise<void> {
+    await this.init();
+    await this.pool.query(`DELETE FROM ${this.p}_facts`);
+    for (const fact of rows) {
+      await this.pool.query(`INSERT INTO ${this.p}_facts (fact) VALUES ($1)`, [fact]);
+    }
+  }
 }
 
 /** pgvector accepts a vector literal like `[0.1,0.2,...]`. */

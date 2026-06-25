@@ -63,6 +63,13 @@ export class FileMemory implements Memory {
       return [];
     }
   }
+
+  /** Replace the whole fact set (used by ReflectiveMemory for consolidation/decay). */
+  async _rewriteFacts(rows: string[]): Promise<void> {
+    await this.ready;
+    const at = new Date().toISOString();
+    await writeFile(this.factsFile, JSON.stringify(rows.map((fact) => ({ fact, at })), null, 2));
+  }
 }
 
 /** In-memory store (lost on restart) — handy for tests and stateless demos. */
@@ -82,5 +89,8 @@ export class EphemeralMemory implements Memory {
   async recall(query?: string, limit = 8) {
     const q = query?.toLowerCase();
     return (q ? this.facts.filter((f) => f.toLowerCase().includes(q)) : this.facts).slice(-limit);
+  }
+  async _rewriteFacts(rows: string[]) {
+    this.facts = [...rows];
   }
 }

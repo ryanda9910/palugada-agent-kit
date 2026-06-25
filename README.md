@@ -123,6 +123,36 @@ new Agent({ system, tools, memory });
 `pg` is an optional peer dep (`npm i pg`). With `embed`, `recall()` is semantic
 (`embedding <=> query`); without it, keyword — same interface either way.
 
+### Self-improving memory
+
+`ReflectiveMemory` wraps any base store and turns passive storage into active
+memory — the agent stops having to remember to call `remember`:
+
+```ts
+import { ReflectiveMemory } from "palugada-agent-kit/memory/reflective";
+
+const memory = new ReflectiveMemory({ base: new FileMemory() }); // wrap any Memory
+const agent = assistant({ memory });
+
+await agent.run("I'm in Jakarta and I prefer terse answers", { sessionId: "u1" });
+await memory.reflect("u1");   // LLM reads the transcript, extracts durable facts
+await memory.forget();        // decay: drop old, unused, low-importance facts
+```
+
+What it adds on top of the base store:
+
+- **Reflection** — `reflect(sessionId)` extracts durable facts from the transcript
+  (preferences, decisions, identity), so memory forms automatically.
+- **Consolidation** — near-duplicate facts (≥70% token overlap) merge and
+  reinforce importance instead of piling up.
+- **Salience** — every fact carries `importance / use-count / timestamps`;
+  `recall` ranks by importance + recency + keyword match and records each use.
+- **Decay** — `forget()` drops facts whose score falls below a floor (old +
+  unused + unimportant), keeping memory small and relevant.
+
+Backend-agnostic: facts are stored as encoded rows on the base `Memory`, so it
+works over `FileMemory`, `PgMemory`, or `EphemeralMemory` unchanged.
+
 ## Deploy
 
 - **HTTP**: `serve(agent)` is a plain Node `http` server — runs on Vercel
