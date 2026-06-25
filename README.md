@@ -84,6 +84,25 @@ const agent = new Agent({
 const { text } = await agent.run("where is order 1234?", { sessionId: "user-42" });
 ```
 
+## Any model — Anthropic or OpenRouter
+
+The model call sits behind a `ModelProvider`. Default is Anthropic direct. Swap in
+OpenRouter to run **any** model (anthropic/_, openai/_, google/_, meta-llama/_,
+qwen/_, deepseek/_, …) on one key — the loop, tools, memory, and recipes don't change:
+
+```ts
+import { OpenRouterProvider } from "palugada-agent-kit/providers";
+
+const agent = assistant({
+  provider: new OpenRouterProvider({ model: "anthropic/claude-haiku-4.5" }), // or "openai/gpt-4o-mini", "qwen/qwen-2.5-72b-instruct", ...
+});
+```
+
+OpenRouter speaks the OpenAI format; the provider translates the canonical
+(Anthropic-block) messages to/from OpenAI per call, so memory + tool-call ids stay
+consistent — you can even switch providers on an existing session. Write your own
+`ModelProvider` for a gateway, a local model, or Bedrock/Vertex.
+
 ## Architecture
 
 ```

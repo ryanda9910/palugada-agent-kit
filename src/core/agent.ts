@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FileMemory } from "./memory.js";
+import { AnthropicProvider, type ModelProvider } from "./provider.js";
 import { stringifyToolResult } from "./tool.js";
 import type { AgentEvent, Memory, Message, RunResult, Tool, ToolContext } from "./types.js";
 
@@ -16,8 +17,14 @@ export type AgentConfig = {
   maxTokens?: number;
   /** Memory backend. Default: FileMemory. */
   memory?: Memory;
-  /** Pass an existing client (e.g. with a custom baseURL/gateway), else one is built from ANTHROPIC_API_KEY. */
+  /** Pass an existing Anthropic client (custom baseURL/gateway), else built from ANTHROPIC_API_KEY. */
   client?: Anthropic;
+  /**
+   * Model backend. Default: Anthropic (from `client`/`model`). Pass an
+   * `OpenRouterProvider` (or any `ModelProvider`) to run on a different
+   * model/provider — the loop, memory, and tools are unchanged.
+   */
+  provider?: ModelProvider;
   /**
    * Gate for tools marked `dangerous`. Return true to allow. Default: allow all
    * (override in production to require a human / policy check).
@@ -46,15 +53,16 @@ export type RunOptions = {
 export class Agent {
   readonly model: string;
   readonly memory: Memory;
-  private client: Anthropic;
+  private provider: ModelProvider;
   private tools: Map<string, Tool>;
   private cfg: Required<Pick<AgentConfig, "system" | "maxSteps" | "temperature" | "maxTokens">>;
   private onApprove: NonNullable<AgentConfig["onApprove"]>;
 
   constructor(config: AgentConfig) {
-    this.model = config.model || process.env.AGENT_MODEL || "claude-sonnet-4-6";
+    const model = config.model || process.env.AGENT_MODEL || "claude-sonnet-4-6";
+    this.provider = config.provider ?? new AnthropicProvider(config.client ?? new Anthropic(), model);
+    this.model = this.provider.model;
     this.memory = config.memory ?? new FileMemory();
-    this.client = config.client ?? new Anthropic();
     this.tools = new Map((config.tools ?? []).map((t) => [t.name, t]));
     this.onApprove = config.onApprove ?? (() => true);
     this.cfg = {
@@ -92,7 +100,7 @@ export class Agent {
     const toolDefs = [...this.tools.values()].map((t) => ({
       name: t.name,
       description: t.description,
-      input_schema: t.input_schema as Anthropic.Tool.InputSchema,
+      input_schema: t.input_schema as unknown,
     }));
 
     let finalText = "";
@@ -101,19 +109,16 @@ export class Agent {
     for (; steps < this.cfg.maxSteps; steps++) {
       if (opts.signal?.aborted) throw new Error("aborted");
 
-      const res = await this.client.messages.create(
-        {
-          model: this.model,
-          max_tokens: this.cfg.maxTokens,
-          temperature: this.cfg.temperature,
-          system: this.cfg.system,
-          messages,
-          ...(toolDefs.length ? { tools: toolDefs } : {}),
-        },
-        { signal: opts.signal },
-      );
+      const res = await this.provider.send({
+        system: this.cfg.system,
+        messages,
+        tools: toolDefs,
+        maxTokens: this.cfg.maxTokens,
+        temperature: this.cfg.temperature,
+        signal: opts.signal,
+      });
 
-      emit({ type: "step", index: steps, stopReason: res.stop_reason });
+      emit({ type: "step", index: steps, stopReason: res.stopReason });
       messages.push({ role: "assistant", content: res.content });
 
       // surface any assistant text
@@ -124,10 +129,10 @@ export class Agent {
         }
       }
 
-      if (res.stop_reason !== "tool_use") break;
+      if (res.stopReason !== "tool_use") break;
 
       // run every requested tool (in parallel) and feed results back
-      const toolUses = res.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+      const toolUses = res.content.filter((b: any): b is Anthropic.ToolUseBlock => b.type === "tool_use");
       const results = await Promise.all(toolUses.map((u) => this.execTool(u, ctx, emit)));
       messages.push({ role: "user", content: results });
     }
