@@ -2,6 +2,10 @@
 
 **One agent core that runs anywhere, talks on any channel, and does anything.**
 
+![Palu Gada Agent Kit demo](demo.gif)
+
+*(Real tools + real loop; reproduce the recording with `bash make-demo.sh` — no API key needed.)*
+
 A small, agent-first starter kit: a universal tool-using agent loop (Anthropic
 SDK) + memory + channel adapters (CLI / HTTP / Telegram) + a recipe library you
 extend. No framework lock-in, ~zero deps, TypeScript end-to-end.
