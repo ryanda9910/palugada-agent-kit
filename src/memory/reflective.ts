@@ -37,6 +37,11 @@ export type ReflectiveMemoryOptions = {
   model?: string;
   /** Decay: drop facts whose score falls below this. Default 0.6. */
   decayFloor?: number;
+  /**
+   * Auto-reflect every N turns (calls to save). 0/undefined = manual only.
+   * The reflection runs in the background so it never blocks the agent's reply.
+   */
+  autoReflectEvery?: number;
   /** Inject a clock for deterministic tests; default Date.now. */
   now?: () => number;
 };
@@ -57,13 +62,18 @@ export class ReflectiveMemory implements Memory {
   private client: Anthropic;
   private model: string;
   private decayFloor: number;
+  private autoReflectEvery: number;
   private now: () => number;
+  private turns = new Map<string, number>();
+  /** Resolves when any in-flight background reflection settles (await before exit). */
+  pending: Promise<unknown> = Promise.resolve();
 
   constructor(opts: ReflectiveMemoryOptions) {
     this.base = opts.base;
     this.client = opts.client ?? new Anthropic();
     this.model = opts.model ?? "claude-haiku-4-5";
     this.decayFloor = opts.decayFloor ?? 0.6;
+    this.autoReflectEvery = opts.autoReflectEvery ?? 0;
     this.now = opts.now ?? (() => Date.now());
   }
 
@@ -71,8 +81,17 @@ export class ReflectiveMemory implements Memory {
   history(sessionId: string): Promise<Message[]> {
     return this.base.history(sessionId);
   }
-  save(sessionId: string, messages: Message[]): Promise<void> {
-    return this.base.save(sessionId, messages);
+  async save(sessionId: string, messages: Message[]): Promise<void> {
+    await this.base.save(sessionId, messages);
+    if (this.autoReflectEvery > 0) {
+      const n = (this.turns.get(sessionId) ?? 0) + 1;
+      this.turns.set(sessionId, n);
+      if (n % this.autoReflectEvery === 0) {
+        // background: don't block the agent's reply. Track on `pending` so a
+        // short-lived process can `await memory.pending` before exiting.
+        this.pending = this.reflect(sessionId).catch(() => 0);
+      }
+    }
   }
 
   /** Store a fact, consolidating against existing near-duplicates. */
