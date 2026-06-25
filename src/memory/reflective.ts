@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { AnthropicProvider, type ModelProvider } from "../core/provider.js";
+import { OpenRouterProvider } from "../providers/openrouter.js";
 import type { Memory, Message } from "../core/types.js";
 
 /**
@@ -31,6 +33,11 @@ type StoredFact = {
 
 export type ReflectiveMemoryOptions = {
   base: Memory;
+  /**
+   * Model backend for reflection. Default mirrors the Agent: OpenRouter if
+   * OPENROUTER_API_KEY is set, else Anthropic. Pass a provider to override.
+   */
+  provider?: ModelProvider;
   /** Anthropic client for reflection (else built from ANTHROPIC_API_KEY). */
   client?: Anthropic;
   /** Model for reflection/consolidation. Default claude-haiku-4-5 (cheap). */
@@ -59,8 +66,7 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/
 
 export class ReflectiveMemory implements Memory {
   private base: Memory;
-  private client: Anthropic;
-  private model: string;
+  private provider: ModelProvider;
   private decayFloor: number;
   private autoReflectEvery: number;
   private now: () => number;
@@ -70,8 +76,14 @@ export class ReflectiveMemory implements Memory {
 
   constructor(opts: ReflectiveMemoryOptions) {
     this.base = opts.base;
-    this.client = opts.client ?? new Anthropic();
-    this.model = opts.model ?? "claude-haiku-4-5";
+    const model = opts.model ?? "claude-haiku-4-5";
+    this.provider =
+      opts.provider ??
+      (opts.client
+        ? new AnthropicProvider(opts.client, model)
+        : process.env.OPENROUTER_API_KEY
+          ? new OpenRouterProvider({ model: process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-4.5" })
+          : new AnthropicProvider(new Anthropic(), model));
     this.decayFloor = opts.decayFloor ?? 0.6;
     this.autoReflectEvery = opts.autoReflectEvery ?? 0;
     this.now = opts.now ?? (() => Date.now());
@@ -156,9 +168,7 @@ export class ReflectiveMemory implements Memory {
       .join("\n")
       .slice(-12_000);
 
-    const res = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 700,
+    const res = await this.provider.send({
       system:
         "You extract durable, reusable memories from a conversation. Return ONLY facts worth remembering across future sessions: stable user preferences, decisions, identity, recurring context, learned procedures. Skip transient chatter, one-off task details, and anything secret (passwords, tokens). Each memory is one concise sentence.",
       messages: [
@@ -170,11 +180,12 @@ export class ReflectiveMemory implements Memory {
             `If nothing is worth remembering, return []. Output JSON only.`,
         },
       ],
+      tools: [],
+      maxTokens: 700,
+      temperature: 0.2,
     });
 
-    const text = res.content.find((b) => b.type === "text")?.type === "text"
-      ? (res.content.find((b) => b.type === "text") as Anthropic.TextBlock).text
-      : "[]";
+    const text = (res.content.find((b: any) => b.type === "text")?.text as string) || "[]";
     let items: Array<{ text: string; type?: FactType; importance?: number }> = [];
     try {
       const m = text.match(/\[[\s\S]*\]/);
