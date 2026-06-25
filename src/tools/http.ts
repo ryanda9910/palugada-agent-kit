@@ -2,8 +2,8 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { defineTool } from "../core/tool.js";
 
-/** Reject loopback / private / link-local / reserved hosts (SSRF guard). */
-function isPrivateAddr(ip: string): boolean {
+/** Reject loopback / private / link-local / reserved hosts (SSRF guard). Exported for opt-in connect-time hardening (see SECURITY.md). */
+export function isPrivateAddr(ip: string): boolean {
   if (ip.includes(":")) {
     const v = ip.toLowerCase();
     // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1) — validate the embedded v4

@@ -44,6 +44,41 @@ How the kit handles the risks specific to running an autonomous, tool-using agen
   powerful: mark it `dangerous` (or remove it) when the agent handles untrusted
   input and could reach secrets.
 
+## Hardening `http_fetch` for untrusted / autonomous use (opt-in)
+
+The default guard validates the resolved IPs *before* fetching, which leaves the
+DNS-rebinding window above. To close it, validate the IP **at connect time** with
+an undici dispatcher whose `lookup` rejects private addresses — TLS SNI / Host are
+preserved, and there's no TOCTOU because the check runs on the actual connection.
+
+```ts
+// npm i undici   (opt-in; the kit stays dep-free by default)
+import { Agent } from "undici";
+import { lookup as dnsLookup } from "node:dns";
+import { isPrivateAddr } from "./src/tools/http.js"; // export it from the SSRF guard
+
+const safeDispatcher = new Agent({
+  connect: {
+    lookup(hostname, options, cb) {
+      dnsLookup(hostname, { ...options, all: true }, (err, addrs) => {
+        if (err) return cb(err, "", 0);
+        if (addrs.some((a) => isPrivateAddr(a.address))) {
+          return cb(new Error(`blocked private address for ${hostname}`), "", 0);
+        }
+        return options.all ? cb(null, addrs as any, 0) : cb(null, addrs[0].address, addrs[0].family);
+      });
+    },
+  },
+});
+
+// pass it to the fetch inside http_fetch (or your own tool):
+const res = await fetch(url, { ...opts, dispatcher: safeDispatcher });
+```
+
+Even with this, the **durable** control for a fully autonomous agent on untrusted
+input is a network-egress-restricted sandbox (firewall / proxy allow-list) — an
+app-level guard is defense-in-depth, not a boundary.
+
 ## Your responsibilities
 
 - **Keys** live in env (`.env` is gitignored). Never commit real keys; rotate if leaked.
