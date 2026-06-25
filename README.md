@@ -42,9 +42,13 @@ from the **same core** — swap the system prompt + tools, not the plumbing.
 ```bash
 git clone <this> palugada-agent-kit && cd palugada-agent-kit
 npm install
-cp .env.example .env          # add ANTHROPIC_API_KEY
+cp .env.example .env          # add ONE key: ANTHROPIC_API_KEY or OPENROUTER_API_KEY
 npm run dev                    # CLI agent
 ```
+
+**Key priority:** if `OPENROUTER_API_KEY` is set, the kit defaults to OpenRouter
+(one key, any model — set `OPENROUTER_MODEL`); otherwise it uses `ANTHROPIC_API_KEY`
+directly. Either works out of the box — no code changes.
 
 Other entrypoints:
 

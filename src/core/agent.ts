@@ -1,8 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FileMemory } from "./memory.js";
 import { AnthropicProvider, type ModelProvider } from "./provider.js";
+import { OpenRouterProvider } from "../providers/openrouter.js";
 import { stringifyToolResult } from "./tool.js";
 import type { AgentEvent, Memory, Message, RunResult, Tool, ToolContext } from "./types.js";
+
+/**
+ * Pick the model backend when none is passed explicitly:
+ *   explicit provider  > explicit Anthropic client > OPENROUTER_API_KEY > ANTHROPIC_API_KEY.
+ * If OPENROUTER_API_KEY is set we default to OpenRouter (one key, any model) so
+ * the kit runs without an Anthropic key. The OpenRouter default model comes from
+ * OPENROUTER_MODEL (an OpenRouter slug, not the Anthropic AGENT_MODEL).
+ */
+function resolveProvider(config: AgentConfig, model: string): ModelProvider {
+  if (config.provider) return config.provider;
+  if (config.client) return new AnthropicProvider(config.client, model);
+  if (process.env.OPENROUTER_API_KEY) {
+    return new OpenRouterProvider({ model: process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-4.5" });
+  }
+  return new AnthropicProvider(new Anthropic(), model);
+}
 
 export type AgentConfig = {
   /** System prompt — the agent's role + rules. */
@@ -60,7 +77,7 @@ export class Agent {
 
   constructor(config: AgentConfig) {
     const model = config.model || process.env.AGENT_MODEL || "claude-sonnet-4-6";
-    this.provider = config.provider ?? new AnthropicProvider(config.client ?? new Anthropic(), model);
+    this.provider = resolveProvider(config, model);
     this.model = this.provider.model;
     this.memory = config.memory ?? new FileMemory();
     this.tools = new Map((config.tools ?? []).map((t) => [t.name, t]));
