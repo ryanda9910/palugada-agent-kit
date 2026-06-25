@@ -1,5 +1,17 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import type { Agent } from "../core/agent.js";
+
+/** Constant-time check that `tok` matches one of `tokens` (no early-exit timing oracle). */
+function tokenMatches(tok: string, tokens: string[]): boolean {
+  const a = Buffer.from(tok);
+  let ok = false;
+  for (const t of tokens) {
+    const b = Buffer.from(t);
+    if (a.length === b.length && timingSafeEqual(a, b)) ok = true; // no break: keep timing flat
+  }
+  return ok;
+}
 
 type WebOptions = {
   port?: number;
@@ -41,7 +53,7 @@ export function createWebHandler(agent: Agent, opts: WebOptions = {}) {
     if (!tokens.length) return true;
     const h = req.headers.authorization || "";
     const tok = h.startsWith("Bearer ") ? h.slice(7) : "";
-    return tokens.includes(tok);
+    return tokenMatches(tok, tokens);
   };
 
   return async (req: IncomingMessage, res: ServerResponse) => {

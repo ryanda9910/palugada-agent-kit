@@ -26,6 +26,23 @@ How the kit handles the risks specific to running an autonomous, tool-using agen
   `child_process`. The only dependency is the Anthropic SDK (`pg` is an optional
   peer dep you opt into).
 - **Parameterized SQL** in `PgMemory` for all values.
+- **Constant-time token check.** The HTTP channel compares bearer tokens with
+  `crypto.timingSafeEqual` (no early-exit timing oracle).
+
+## Known limitations (defense-in-depth, not airtight)
+
+- **DNS rebinding (TOCTOU).** `http_fetch` resolves the host, validates the IPs,
+  then `fetch()` resolves the hostname *again*. An attacker-controlled DNS that
+  returns a public IP at check time and a private one at fetch time can still
+  slip past the SSRF guard. The guard stops the common cases (literal private
+  hosts, metadata IPs, redirects); for fully untrusted/autonomous use, run the
+  agent in a network-egress-restricted sandbox rather than relying on the guard
+  alone.
+- **`http_fetch` is an outbound channel.** The model controls the URL, headers,
+  and body, and the SSRF guard only blocks *internal* targets — a prompt-injected
+  agent can still POST data to an attacker's *public* URL. Treat `http_fetch` as
+  powerful: mark it `dangerous` (or remove it) when the agent handles untrusted
+  input and could reach secrets.
 
 ## Your responsibilities
 
